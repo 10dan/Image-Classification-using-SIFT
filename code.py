@@ -117,41 +117,67 @@ def Classify():
     def CalcHistograms(files):
         hists = []
         for f in files:
-            img = cv2.imread(f,0)
-            hist = cv2.calcHist([img],[0],None,[256],[0,256])
-            hist/=(250*250) #Normalize the histogram. Sum = 1.
-            hists.append(hist)
+            img = cv2.imread(f,1)
+            col_hists = []
+            for i in range(3):
+                hist = cv2.calcHist([img],[i],None,[256],[0,256])
+                hist/=(250*250) #Normalize the histogram. Sum = 1.
+                col_hists.append(hist)
+            hists.append(col_hists)
         return hists
     test_hists = CalcHistograms(test_files)
     train_hists = CalcHistograms(train_files)
 
-    #Defin funtion to find most common item in list
+    #Define funtion to find most common item in list
     def most_frequent(List):
         return max(set(List), key = List.count)
 
     #Apply K nearest neighbour.
-    k = 10
+    k=1 #K as 3 gives the highest accuracy. But instructions says "Nearest neighbour" so 1?
+    correct = 0 #How many are calssified correctly.
+    class_names = [
+    "airplanes",
+    "cars",
+    "dog",
+    "faces",
+    "keyboard"]
+    #Keep track of how accurate it is per class.
+    class_guesses_correct = [0,0,0,0,0]
+
+    #For each test image histogram
     for j, test in enumerate(test_hists):
-        dists = []
+        dists = [] #find the distance to every training img.
         for i, train in enumerate(train_hists, 0):
             dist = 0
-            for bin_counter in range(256):
-                dist += (abs(test[bin_counter] - train[bin_counter]))**2
-            dist = math.sqrt(dist)
-            #Keep track of dists and img it came from.
-            tuple = (dist, i)
-            dists.append(tuple)
+            for col in range(3): #For each color channel
+                for bin_counter in range(256): #For every bin.
+                    #Sum up the squared differences betwen test and training img.
+                    dist += (abs(test[col][bin_counter] - train[col][bin_counter]))**2
+                dist = math.sqrt(dist)
+                #Keep track of dists and training img it was compared against
+                dists.append((dist, i))
+
         dists.sort(key=lambda x: x[0]) #Sorts by 1st element of tuple (dist)
         k_closest = dists[:k]
         k_closest_classes = []
+        #Put all the closest distances & index of img it came from into an array.
         for c in k_closest:
             k_closest_classes.append(train_files[c[1]])
+        #Pick out the path of the most requent in array. And split on '\'
         guess = str(Path(most_frequent(k_closest_classes)).parent).split('\\')
         true = str(Path(test_files[j]).parent).split('\\')
+        #take the last element (the class name) & check if we were correct.
         if(guess[-1] == true[-1]):
-            print("yay")
-        else:
-            print("no")
-
+            correct += 1
+            #Add one to the number correct per class array.
+            for m,name in enumerate(class_names):
+                if(true[-1] == name):
+                    class_guesses_correct[m] += 1
+    #Print results
+    accuracy = (correct / len(test_files))*100
+    print("Overall accuracy: " + str(accuracy) + "%")
+    for m,name in enumerate(class_names):
+        class_guess[m] = (class_guess[m]/10)*100
+        print(name + " accuracy: " + str(class_guesses_correct[m])+ "%")
 
 Classify()
