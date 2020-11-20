@@ -1,6 +1,10 @@
 import cv2
 import os
 import numpy as np
+from matplotlib import pyplot as plt
+from pathlib import Path
+import math
+
 
 def Task1Task2():
     path = "COMP338_Assignment1_Dataset/Training/"
@@ -76,8 +80,7 @@ def Task1Task2():
         cluster_centers = new_cluster_centers;
     np.save('cluster_data.npy', cluster_centers)
 
-#Task1Task2()
-loaded_clusters = np.load('cluster_data.npy')
+#loaded_clusters = np.load('cluster_data.npy')
 
 
 
@@ -96,3 +99,59 @@ loaded_clusters = np.load('cluster_data.npy')
 
 
             #
+
+def Classify():
+    test_path = "COMP338_Assignment1_Dataset/Test/"
+    train_path = "COMP338_Assignment1_Dataset/Training/"
+    train_dict = []
+    def LoadImages(path):
+        files = []
+        for r, d, f in os.walk(path):
+            for file in f:
+                if file.endswith(".jpg"):
+                    files.append(str(os.path.join(r,file)))
+        return files
+
+    test_files = LoadImages(test_path)
+    train_files = LoadImages(train_path)
+    def CalcHistograms(files):
+        hists = []
+        for f in files:
+            img = cv2.imread(f,0)
+            hist = cv2.calcHist([img],[0],None,[256],[0,256])
+            hist/=(250*250) #Normalize the histogram. Sum = 1.
+            hists.append(hist)
+        return hists
+    test_hists = CalcHistograms(test_files)
+    train_hists = CalcHistograms(train_files)
+
+    #Defin funtion to find most common item in list
+    def most_frequent(List):
+        return max(set(List), key = List.count)
+
+    #Apply K nearest neighbour.
+    k = 10
+    for j, test in enumerate(test_hists):
+        dists = []
+        for i, train in enumerate(train_hists, 0):
+            dist = 0
+            for bin_counter in range(256):
+                dist += (abs(test[bin_counter] - train[bin_counter]))**2
+            dist = math.sqrt(dist)
+            #Keep track of dists and img it came from.
+            tuple = (dist, i)
+            dists.append(tuple)
+        dists.sort(key=lambda x: x[0]) #Sorts by 1st element of tuple (dist)
+        k_closest = dists[:k]
+        k_closest_classes = []
+        for c in k_closest:
+            k_closest_classes.append(train_files[c[1]])
+        guess = str(Path(most_frequent(k_closest_classes)).parent).split('\\')
+        true = str(Path(test_files[j]).parent).split('\\')
+        if(guess[-1] == true[-1]):
+            print("yay")
+        else:
+            print("no")
+
+
+Classify()
